@@ -249,10 +249,13 @@ def deploy(project: Path,
 
     organization_id = container.organization_manager.try_get_working_organization_id()
     paths_to_mount = {}
-    for module in (data_provider_live_instances + [data_downloader_instances, brokerage_instance]
-                   + history_providers_instances):
-        module.ensure_module_installed(organization_id, container_module_version)
-        paths_to_mount.update(module.get_paths_to_mount())
+    try:
+        for module in (data_provider_live_instances + [data_downloader_instances, brokerage_instance]
+                       + history_providers_instances):
+            module.ensure_module_installed(organization_id, container_module_version)
+            paths_to_mount.update(module.get_paths_to_mount())
+    except Exception as e:
+        logger.warn(f"Module installation skipped ({e}). Using modules from Docker image.")
 
     if not lean_config["environments"][environment_name]["live-mode"]:
         raise MoreInfoError(f"The '{environment_name}' is not a live trading environment (live-mode is set to false)",
