@@ -368,7 +368,22 @@ def backtest(project: Path,
         data_provider = non_interactive_config_build_for_name(lean_config, data_provider_historical,
                                                               cli_data_downloaders, kwargs, logger, environment_name)
         data_provider.ensure_module_installed(organization_id, container_module_version)
-        container.lean_config_manager.set_properties(data_provider.get_settings())
+        settings = data_provider.get_settings()
+        # The bundled "Local" data-downloader (the default) hardcodes
+        # data-provider=DefaultDataProvider, which would silently overwrite a data-provider
+        # deliberately configured in lean.json (ours reads from the algo-trading market-data API).
+        # Keep whatever lean.json already asks for.
+        if data_provider_historical.lower() == "local":
+            configured = lean_config_manager.get_lean_config().get("data-provider", None)
+            if configured:
+                settings["data-provider"] = configured
+        container.lean_config_manager.set_properties(settings)
+        lean_config.update(settings)
+        # config_build_for_name also writes the module's settings into
+        # environments.<environment>, which is what LEAN actually reads first.
+        env_settings = lean_config.get("environments", {}).get(environment_name, None)
+        if env_settings is not None and "data-provider" in settings:
+            env_settings["data-provider"] = settings["data-provider"]
         paths_to_mount = data_provider.get_paths_to_mount()
 
     lean_config_manager.configure_data_purchase_limit(lean_config, data_purchase_limit)
